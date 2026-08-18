@@ -3,19 +3,19 @@
 Integration Gateway uses explicit capability boundaries so transport code and vendor payloads do not leak into business-facing application services.
 
 ```text
-Inbound side                               Outbound side
-------------                               -------------
-HTTP / signed webhook                      application service
-        |                                         |
-        v                               +---------+---------+
-   Fastify routes                       |                   |
-        |                         OutboundConnector     SoapConnector
-        +-- normal REST                  |                   |
-        |                         REST adapter         SOAP HTTP adapter
-        +-- webhook trust boundary       |                   |
-              |                          v                   v
-              raw body + HMAC       external REST      external SOAP
-              |
+Inbound side                                Outbound / async side
+------------                                ---------------------
+HTTP / signed webhook                       application service
+        |                                           |
+        v                              +-------------+-------------+
+   Fastify routes                    REST          SOAP          Jobs
+        |                            port          port          service
+        +-- normal REST                |             |             |
+        |                         REST adapter   SOAP adapter   JobRepository
+        +-- webhook trust boundary     |             |             |
+              |                        v             v         JobExecutor
+              raw body + HMAC     external REST external SOAP      |
+              |                                                retry / DLQ
               idempotency claim
               |
               +------------------+
@@ -25,19 +25,20 @@ HTTP / signed webhook                      application service
                                  |
                                  v
                      repository / adapter ports
-                                 |
-                      demo / REST / SOAP / jobs
 ```
 
 ## Capability boundaries
 
-- `domain/` contains provider-neutral integration, webhook/audit, REST outbound and SOAP result types.
-- `repositories/` defines stable storage/capability interfaces, including `OutboundConnector` and `SoapConnector`.
-- `services/` owns validation and orchestration.
-- `security/` contains provider-neutral security primitives such as HMAC verification.
+- `domain/` contains provider-neutral integration, webhook/audit, outbound, SOAP and job types.
+- `repositories/` defines storage/capability interfaces including connectors, job repository and job executor registry.
+- `services/` owns validation, orchestration and state transitions.
+- `security/` contains provider-neutral primitives such as HMAC verification.
+- `reliability/` contains bounded retry/backoff rules.
+- `observability/` contains low-cardinality process-local reference metrics.
 - `xml/` contains generic SOAP envelope parsing/building rules.
-- `adapters/` contains infrastructure-specific implementations, including outbound REST and SOAP/HTTP.
-- `app.ts` owns HTTP transport, route schemas and demo-only surfaces.
+- `workers/` contains the opt-in polling job worker.
+- `adapters/` contains infrastructure-specific implementations, including in-memory reference persistence and REST/SOAP HTTP connectors.
+- `app.ts` owns HTTP transport, lifecycle hooks and demo-only surfaces.
 - `server.ts` owns process startup and graceful shutdown only.
 
 ## Inbound webhook ordering
@@ -88,11 +89,33 @@ The generic SOAP connector supports SOAP 1.1 and 1.2 transport conventions but d
 
 Automatic SOAP retries are deliberately absent because operation idempotency is provider-specific. See [`SOAP-XML.md`](SOAP-XML.md).
 
+## Background job ordering
+
+```text
+enqueue
+  → queued
+  → atomic claim
+  → running
+  → resolve registered executor
+  → execute
+      ├─ success --------------------→ succeeded
+      ├─ retryable + budget --------→ retry_scheduled
+      └─ permanent / exhausted -----→ dead_letter
+
+dead_letter
+  → explicit replay
+  → NEW queued job linked by replayedFromJobId
+```
+
+The original dead-letter record is immutable from the replay perspective. The reference in-memory repository claims work only inside one process; a production repository must implement a durable atomic claim/lease or equivalent compare-and-set mechanism for multi-worker deployments.
+
+The worker is disabled by default and controlled by `JOB_WORKER_ENABLED`. See [`JOBS.md`](JOBS.md).
+
 ## Trust rules
 
 1. External payloads are untrusted until validated.
 2. Credentials never enter domain objects or client-visible configuration.
-3. Vendor-specific field names should be translated inside adapters/mappers.
+3. Vendor-specific field names are translated inside adapters/mappers/executors.
 4. Correlation IDs are propagated across integration steps.
 5. Webhook authenticity is verified against the exact raw body before business processing.
 6. Idempotency must become atomic/durable before multi-instance production use.
@@ -101,7 +124,10 @@ Automatic SOAP retries are deliberately absent because operation idempotency is 
 9. Redirect following stays disabled by default.
 10. XML custom entity expansion is disabled in the generic parser.
 11. SOAP responses are bounded by a configured maximum size before parsing completes.
-12. Production persistence must replace in-memory adapters before real integration events are accepted.
-13. Audit/demo APIs are not public operational dashboards unless separately authenticated and authorized.
+12. Jobs are claimed before execution and have a bounded retry budget.
+13. Dead-letter replay creates a new record rather than erasing the original failure history.
+14. Job payloads do not select arbitrary code modules or remote URLs; executors are registered explicitly in composition.
+15. Production persistence must replace in-memory event, audit, idempotency and job adapters before real workloads are accepted.
+16. Audit/demo APIs are not public operational dashboards unless separately authenticated and authorized.
 
-The bundled in-memory adapters and fictional targets exist only for local development, examples and CI.
+The bundled in-memory adapters, metrics and fictional targets exist only for local development, examples and CI.
