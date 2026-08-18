@@ -3,7 +3,11 @@ import type { SoapResult } from "../domain/soap.ts";
 import type { SoapConnector } from "../repositories/soap-connector.ts";
 
 export class SoapDemoService {
-  constructor(private readonly connector: SoapConnector) {}
+  private readonly connector: SoapConnector;
+
+  constructor(connector: SoapConnector) {
+    this.connector = connector;
+  }
 
   async ping(mode: "success" | "fault" = "success"): Promise<SoapResult> {
     return this.connector.send({
