@@ -14,6 +14,11 @@ export type AppConfig = {
   soapEndpoint: string | null;
   soapTimeoutMs: number;
   soapMaxResponseBytes: number;
+  jobWorkerEnabled: boolean;
+  jobPollIntervalMs: number;
+  jobDefaultMaxAttempts: number;
+  jobRetryBaseDelayMs: number;
+  jobRetryMaxDelayMs: number;
   enableDemoApi: boolean;
   enableDemoTarget: boolean;
 };
@@ -75,6 +80,23 @@ export function loadConfig(): AppConfig {
       process.env.SOAP_MAX_RESPONSE_BYTES,
       1048576,
       "SOAP_MAX_RESPONSE_BYTES"
+    ),
+    jobWorkerEnabled: parseBoolean(process.env.JOB_WORKER_ENABLED, false, "JOB_WORKER_ENABLED"),
+    jobPollIntervalMs: parsePositiveInteger(process.env.JOB_POLL_INTERVAL_MS, 1000, "JOB_POLL_INTERVAL_MS"),
+    jobDefaultMaxAttempts: parsePositiveInteger(
+      process.env.JOB_DEFAULT_MAX_ATTEMPTS,
+      3,
+      "JOB_DEFAULT_MAX_ATTEMPTS"
+    ),
+    jobRetryBaseDelayMs: parsePositiveInteger(
+      process.env.JOB_RETRY_BASE_DELAY_MS,
+      500,
+      "JOB_RETRY_BASE_DELAY_MS"
+    ),
+    jobRetryMaxDelayMs: parsePositiveInteger(
+      process.env.JOB_RETRY_MAX_DELAY_MS,
+      10000,
+      "JOB_RETRY_MAX_DELAY_MS"
     ),
     enableDemoApi: parseBoolean(process.env.ENABLE_DEMO_API, false, "ENABLE_DEMO_API"),
     enableDemoTarget: parseBoolean(process.env.ENABLE_DEMO_TARGET, false, "ENABLE_DEMO_TARGET")

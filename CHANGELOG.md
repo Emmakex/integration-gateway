@@ -2,6 +2,23 @@
 
 All notable changes to Integration Gateway are documented here.
 
+## [0.5.0] - 2026-08-18
+
+### Added
+
+- provider-neutral background job domain and repository/executor ports;
+- in-memory atomic claim lifecycle for the reference runtime;
+- queued, running, retry-scheduled, succeeded and dead-letter states;
+- bounded job retry scheduling using the shared retry policy;
+- explicit dead-letter transition for permanent failures or exhausted retry budgets;
+- dead-letter replay that creates a new linked job without mutating the original record;
+- job transition history and correlation ID preservation;
+- opt-in polling worker disabled by default;
+- process-local low-cardinality job metrics;
+- fictional deterministic job executor for retry/success and permanent-failure validation;
+- unit tests and demo HTTP routes for job processing, dead-letter and replay;
+- background-job architecture and production-safety documentation.
+
 ## [0.4.0] - 2026-08-18
 
 ### Added
