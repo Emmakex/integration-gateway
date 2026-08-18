@@ -150,14 +150,18 @@ export class RestOutboundConnector implements OutboundConnector {
     if (request.body) headers.set("content-type", "application/json");
     if (request.idempotencyKey?.trim()) headers.set("idempotency-key", request.idempotencyKey.trim());
 
+    const init: RequestInit = {
+      method: request.method,
+      headers,
+      signal: AbortSignal.timeout(this.timeoutMs),
+      redirect: "error"
+    };
+    if (request.body) {
+      init.body = JSON.stringify(request.body);
+    }
+
     try {
-      const response = await this.fetchFn(target, {
-        method: request.method,
-        headers,
-        body: request.body ? JSON.stringify(request.body) : undefined,
-        signal: AbortSignal.timeout(this.timeoutMs),
-        redirect: "error"
-      });
+      const response = await this.fetchFn(target, init);
 
       const text = await response.text();
       let body: unknown = null;
