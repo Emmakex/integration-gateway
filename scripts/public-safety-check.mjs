@@ -5,9 +5,13 @@ const findings = [];
 const roots = ["src", "tests", "scripts"];
 const textExtensions = new Set([".ts", ".js", ".mjs", ".cjs", ".json"]);
 
-const standardProtocolUris = [
+const allowedUrlPrefixes = [
   "http://schemas.xmlsoap.org/soap/envelope/",
-  "http://www.w3.org/2003/05/soap-envelope"
+  "http://www.w3.org/2003/05/soap-envelope",
+  "http://127.0.0.1",
+  "https://127.0.0.1",
+  "http://localhost",
+  "https://localhost"
 ];
 
 const sharedRules = [
@@ -20,8 +24,6 @@ const sharedRules = [
   { name: "TLS verification disabled", pattern: /NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*["']?0|rejectUnauthorized\s*:\s*false/i }
 ];
 
-const externalEndpointPattern = /https?:\/\/(?!127\.0\.0\.1(?::\d+)?(?:\/|["'`\s])|localhost(?::\d+)?(?:\/|["'`\s]))/i;
-
 async function scanFile(path) {
   if (!textExtensions.has(extname(path))) return;
   const content = await readFile(path, "utf8");
@@ -30,16 +32,16 @@ async function scanFile(path) {
     if (rule.pattern.test(content)) findings.push(`${path}: ${rule.name}`);
   }
 
-  if (path === "src" || path.startsWith(`src/`)) {
+  if (path === "src" || path.startsWith("src/")) {
     if (/console\.(log|debug)\s*\(/.test(content)) findings.push(`${path}: debug logging`);
     if (/\bdebugger\s*;/.test(content)) findings.push(`${path}: debugger statement`);
   }
 
-  const endpointScanContent = standardProtocolUris.reduce(
-    (value, uri) => value.replaceAll(uri, "STANDARD_PROTOCOL_URI"),
+  const endpointScanContent = allowedUrlPrefixes.reduce(
+    (value, url) => value.replaceAll(url, "ALLOWED_URL"),
     content
   );
-  if (externalEndpointPattern.test(endpointScanContent)) {
+  if (/https?:\/\//i.test(endpointScanContent)) {
     findings.push(`${path}: hardcoded external endpoint`);
   }
 }
