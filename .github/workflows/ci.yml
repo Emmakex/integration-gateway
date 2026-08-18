@@ -54,6 +54,9 @@ jobs:
           OUTBOUND_MAX_ATTEMPTS: 3
           OUTBOUND_RETRY_BASE_DELAY_MS: 1
           OUTBOUND_RETRY_MAX_DELAY_MS: 5
+          SOAP_ENDPOINT: http://127.0.0.1:3001/v1/demo-soap-target
+          SOAP_TIMEOUT_MS: 1000
+          SOAP_MAX_RESPONSE_BYTES: 65536
           ENABLE_DEMO_API: true
           ENABLE_DEMO_TARGET: true
         run: |
@@ -77,6 +80,7 @@ jobs:
 
           curl -fsS http://127.0.0.1:3001/ready | grep -q '"webhookSignature":"configured"'
           curl -fsS http://127.0.0.1:3001/ready | grep -q '"outboundConnector":"configured"'
+          curl -fsS http://127.0.0.1:3001/ready | grep -q '"soapConnector":"configured"'
 
           response_code=$(curl -sS -o /tmp/event.json -w '%{http_code}' \
             -X POST http://127.0.0.1:3001/v1/integration-events \
@@ -137,6 +141,24 @@ jobs:
           grep -q '"ok":true' /tmp/outbound.json
           grep -q '"attempts":3' /tmp/outbound.json
           grep -q '"attempt":3' /tmp/outbound.json
+
+          response_code=$(curl -sS -o /tmp/soap-success.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:3001/v1/demo/soap \
+            -H 'content-type: application/json' \
+            --data '{"mode":"success"}')
+
+          test "$response_code" = "200"
+          grep -q '"ok":true' /tmp/soap-success.json
+          grep -q 'PingResponse' /tmp/soap-success.json
+
+          response_code=$(curl -sS -o /tmp/soap-fault.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:3001/v1/demo/soap \
+            -H 'content-type: application/json' \
+            --data '{"mode":"fault"}')
+
+          test "$response_code" = "502"
+          grep -q '"kind":"fault"' /tmp/soap-fault.json
+          grep -q 'Fictional demo fault' /tmp/soap-fault.json
 
       - name: Dependency audit
         run: npm audit --audit-level=high

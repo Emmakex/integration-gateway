@@ -11,6 +11,9 @@ export type AppConfig = {
   outboundMaxAttempts: number;
   outboundRetryBaseDelayMs: number;
   outboundRetryMaxDelayMs: number;
+  soapEndpoint: string | null;
+  soapTimeoutMs: number;
+  soapMaxResponseBytes: number;
   enableDemoApi: boolean;
   enableDemoTarget: boolean;
 };
@@ -65,6 +68,13 @@ export function loadConfig(): AppConfig {
       process.env.OUTBOUND_RETRY_MAX_DELAY_MS,
       2000,
       "OUTBOUND_RETRY_MAX_DELAY_MS"
+    ),
+    soapEndpoint: process.env.SOAP_ENDPOINT?.trim() || null,
+    soapTimeoutMs: parsePositiveInteger(process.env.SOAP_TIMEOUT_MS, 5000, "SOAP_TIMEOUT_MS"),
+    soapMaxResponseBytes: parsePositiveInteger(
+      process.env.SOAP_MAX_RESPONSE_BYTES,
+      1048576,
+      "SOAP_MAX_RESPONSE_BYTES"
     ),
     enableDemoApi: parseBoolean(process.env.ENABLE_DEMO_API, false, "ENABLE_DEMO_API"),
     enableDemoTarget: parseBoolean(process.env.ENABLE_DEMO_TARGET, false, "ENABLE_DEMO_TARGET")

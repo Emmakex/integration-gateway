@@ -20,8 +20,13 @@ Report security concerns privately to **eduardoyauri@emmake.com** with the affec
 - Do not accept arbitrary absolute outbound URLs from API callers. Remote destinations must come from reviewed server-side configuration/adapters.
 - Keep redirect following disabled by default for outbound connectors.
 - Validate connector-relative paths and preserve the configured remote origin.
+- SOAP endpoints must come from reviewed server-side configuration and must not embed credentials.
+- XML entity processing remains disabled for generic SOAP response parsing.
+- Enforce response-size limits before treating remote SOAP/XML data as trusted application input.
+- Do not expose generic SOAP operation/namespace selection directly to untrusted public callers; provider adapters should own those values.
+- Automatic SOAP retries require provider-specific idempotency guarantees and should be handled through the job/replay layer rather than the generic connector.
 - Real provider credentials belong in a deployment secret store and provider-specific adapter, not generic request payloads.
-- Integration logs must not contain secrets or unnecessary personal data.
+- Integration logs must not contain secrets, full sensitive XML payloads or unnecessary personal data.
 - Demo/audit endpoints must remain disabled or separately authenticated in production.
 - Production persistence must replace in-memory event, audit and idempotency adapters.
 

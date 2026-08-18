@@ -2,6 +2,21 @@
 
 All notable changes to Integration Gateway are documented here.
 
+## [0.4.0] - 2026-08-18
+
+### Added
+
+- provider-neutral `SoapConnector` boundary;
+- SOAP 1.1 and SOAP 1.2 envelope generation;
+- SOAPAction/content-type transport conventions;
+- XML parsing with entity processing disabled;
+- normalized SOAP 1.1 / 1.2 Fault handling;
+- fixed server-side SOAP endpoint configuration;
+- request timeout and maximum response-size controls;
+- fictional SOAP success/fault routes for CI;
+- SOAP/XML security and architecture documentation;
+- SOAP envelope/fault unit tests.
+
 ## [0.3.0] - 2026-08-18
 
 ### Added
