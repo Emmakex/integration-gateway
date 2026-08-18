@@ -49,6 +49,13 @@ jobs:
           WEBHOOK_SIGNING_SECRET: integration-gateway-ci-demo-key
           WEBHOOK_MAX_AGE_SECONDS: 300
           EXPOSE_AUDIT_API: true
+          OUTBOUND_BASE_URL: http://127.0.0.1:3001
+          OUTBOUND_TIMEOUT_MS: 1000
+          OUTBOUND_MAX_ATTEMPTS: 3
+          OUTBOUND_RETRY_BASE_DELAY_MS: 1
+          OUTBOUND_RETRY_MAX_DELAY_MS: 5
+          ENABLE_DEMO_API: true
+          ENABLE_DEMO_TARGET: true
         run: |
           npm start > /tmp/integration-gateway.log 2>&1 &
           server_pid=$!
@@ -69,6 +76,7 @@ jobs:
           fi
 
           curl -fsS http://127.0.0.1:3001/ready | grep -q '"webhookSignature":"configured"'
+          curl -fsS http://127.0.0.1:3001/ready | grep -q '"outboundConnector":"configured"'
 
           response_code=$(curl -sS -o /tmp/event.json -w '%{http_code}' \
             -X POST http://127.0.0.1:3001/v1/integration-events \
@@ -119,6 +127,16 @@ jobs:
 
           curl -fsS http://127.0.0.1:3001/v1/webhook-audit | grep -q '"outcome":"replayed"'
           curl -fsS http://127.0.0.1:3001/v1/webhook-audit | grep -q '"outcome":"rejected"'
+
+          response_code=$(curl -sS -o /tmp/outbound.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:3001/v1/demo/outbound \
+            -H 'content-type: application/json' \
+            --data '{"payload":{"externalId":"demo-789"},"idempotencyKey":"ci-outbound-1"}')
+
+          test "$response_code" = "200"
+          grep -q '"ok":true' /tmp/outbound.json
+          grep -q '"attempts":3' /tmp/outbound.json
+          grep -q '"attempt":3' /tmp/outbound.json
 
       - name: Dependency audit
         run: npm audit --audit-level=high
