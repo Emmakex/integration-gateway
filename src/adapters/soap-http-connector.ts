@@ -21,8 +21,11 @@ class ResponseTooLargeError extends Error {
 function safeAction(value: string | undefined): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
-  if (/[
-\"]/.test(trimmed)) {
+  if (
+    trimmed.includes("\r") ||
+    trimmed.includes("\n") ||
+    trimmed.includes('"')
+  ) {
     throw new Error("SOAP action contains unsupported header characters");
   }
   return trimmed;
