@@ -1,0 +1,26 @@
+{
+  "name": "integration-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reusable backend starter for REST APIs, webhooks and enterprise integrations.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24.12 <25"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "check:safety": "node scripts/public-safety-check.mjs",
+    "check": "npm run check:safety && npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "fastify": "5.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3"
+  }
+}
