@@ -12,9 +12,10 @@
     "dev": "node --watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "check:safety": "node scripts/public-safety-check.mjs",
-    "check": "npm run check:safety && npm run typecheck && npm run build"
+    "check": "npm run check:safety && npm test && npm run typecheck && npm run build"
   },
   "dependencies": {
     "fastify": "5.10.0",
