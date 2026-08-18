@@ -2,6 +2,33 @@
 
 All notable changes to Integration Gateway are documented here.
 
+## [1.0.0] - 2026-08-18
+
+### Added
+
+- stable documented integration-gateway baseline;
+- release-readiness checker for versioning, exact dependency pins, required docs and safe defaults;
+- npm/runtime metadata pinned for Node 24 + npm 11;
+- adapter implementation guide;
+- deployment guidance and production-readiness checklist;
+- support policy and post-1.0 roadmap;
+- community issue/PR templates and dependency-update policy;
+- reproducible dependency lock and `npm ci` CI flow;
+- expanded safety scan and release consistency gate;
+- end-to-end smoke validation across webhooks, REST retries, SOAP Fault handling and job retry/dead-letter/replay.
+
+### Stable capabilities
+
+- signed inbound webhooks with HMAC/timestamp/idempotency controls;
+- outbound REST connector boundary with bounded retry/failure classification;
+- SOAP 1.1/1.2 transport boundary with safe XML handling;
+- background job lifecycle with bounded retries, dead-letter, replay and reference metrics;
+- explicit provider-neutral ports/adapters and fictional demo fixtures only.
+
+### Production boundary
+
+The bundled in-memory persistence, process-local metrics and demo management surfaces remain reference implementations. Production deployments must replace/protect them as documented in `docs/PRODUCTION-CHECKLIST.md`.
+
 ## [0.5.0] - 2026-08-18
 
 ### Added

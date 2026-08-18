@@ -1,21 +1,35 @@
 {
   "name": "integration-gateway",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "Reusable backend starter for REST APIs, signed webhooks, SOAP/XML, background jobs and enterprise integrations.",
+  "description": "Reusable TypeScript integration gateway for REST APIs, signed webhooks, SOAP/XML, background jobs, retries and enterprise adapters.",
   "license": "MIT",
+  "author": "Eduardo Yauri",
   "type": "module",
+  "packageManager": "npm@11.17.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Emmakex/integration-gateway.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Emmakex/integration-gateway/issues"
+  },
+  "homepage": "https://github.com/Emmakex/integration-gateway#readme",
   "engines": {
-    "node": ">=24.12 <25"
+    "node": ">=24.12 <25",
+    "npm": ">=11 <12"
   },
   "scripts": {
     "dev": "node --watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "node --test tests/*.test.ts",
+    "smoke": "node scripts/http-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "check:safety": "node scripts/public-safety-check.mjs",
-    "check": "npm run check:safety && npm test && npm run typecheck && npm run build"
+    "check:release": "node scripts/release-check.mjs",
+    "verify": "npm run check:safety && npm run check:release && npm test && npm run typecheck && npm run build",
+    "check": "npm run verify"
   },
   "dependencies": {
     "fast-xml-parser": "5.10.1",

@@ -1,0 +1,29 @@
+name: Verify dependency lock
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Verify npm major
+        run: npm --version | grep -E '^11\.'
+
+      - name: Verify committed lockfile is current
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-fund
+          git diff --exit-code -- package-lock.json

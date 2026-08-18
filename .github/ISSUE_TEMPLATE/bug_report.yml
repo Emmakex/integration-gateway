@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem in the generic Integration Gateway framework.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, private customer payloads, exploitable security details or production endpoints.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal fictional reproduction
+      description: Provide fictional payloads/configuration with all secrets removed.
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: v24.x
+    validations:
+      required: true
+  - type: input
+    id: npm
+    attributes:
+      label: npm version
+      placeholder: 11.x
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification output
+      description: Summarize `npm run verify` and relevant test output.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed credentials, customer data and private endpoints from this report.
+          required: true
+        - label: This is not a vulnerability disclosure; security issues follow SECURITY.md.
+          required: true

@@ -26,11 +26,14 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Install dependencies
-        run: npm install --no-fund
+      - name: Install locked dependencies
+        run: npm ci --no-fund
 
       - name: Public safety check
         run: npm run check:safety
+
+      - name: Release consistency
+        run: npm run check:release
 
       - name: Unit tests
         run: npm test
@@ -41,11 +44,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: HTTP smoke tests
+      - name: HTTP smoke suite
         env:
           HOST: 127.0.0.1
           PORT: 3001
           LOG_LEVEL: warn
+          SMOKE_BASE_URL: http://127.0.0.1:3001
           WEBHOOK_SIGNING_SECRET: integration-gateway-ci-demo-key
           WEBHOOK_MAX_AGE_SECONDS: 300
           EXPOSE_AUDIT_API: true
@@ -68,130 +72,7 @@ jobs:
           npm start > /tmp/integration-gateway.log 2>&1 &
           server_pid=$!
           trap 'kill $server_pid 2>/dev/null || true' EXIT
-
-          ready=false
-          for attempt in {1..30}; do
-            if curl -fsS http://127.0.0.1:3001/health > /dev/null; then
-              ready=true
-              break
-            fi
-            sleep 1
-          done
-
-          if [ "$ready" != "true" ]; then
-            cat /tmp/integration-gateway.log
-            exit 1
-          fi
-
-          curl -fsS http://127.0.0.1:3001/ready | grep -q '"webhookSignature":"configured"'
-          curl -fsS http://127.0.0.1:3001/ready | grep -q '"outboundConnector":"configured"'
-          curl -fsS http://127.0.0.1:3001/ready | grep -q '"soapConnector":"configured"'
-          curl -fsS http://127.0.0.1:3001/ready | grep -q '"jobWorker":"disabled"'
-
-          response_code=$(curl -sS -o /tmp/event.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:3001/v1/integration-events \
-            -H 'content-type: application/json' \
-            --data '{"source":"demo-crm","type":"contact.updated","payload":{"contactId":"demo-123"}}')
-          test "$response_code" = "201"
-          grep -q '"status":"accepted"' /tmp/event.json
-
-          payload='{"contactId":"demo-webhook-456"}'
-          timestamp=$(date +%s)
-          signature=$(PAYLOAD="$payload" TIMESTAMP="$timestamp" node -e "const {createHmac}=require('node:crypto');process.stdout.write('v1='+createHmac('sha256',process.env.WEBHOOK_SIGNING_SECRET).update(process.env.TIMESTAMP+'.'+process.env.PAYLOAD).digest('hex'))")
-
-          response_code=$(curl -sS -o /tmp/webhook-first.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:3001/v1/webhooks/demo-crm/contact.updated \
-            -H 'content-type: application/json' \
-            -H "x-integration-timestamp: $timestamp" \
-            -H "x-integration-signature: $signature" \
-            -H 'x-idempotency-key: ci-hook-1' \
-            -H 'x-correlation-id: ci-correlation-1' \
-            --data "$payload")
-          test "$response_code" = "202"
-          grep -q '"replayed":false' /tmp/webhook-first.json
-
-          response_code=$(curl -sS -o /tmp/webhook-replay.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:3001/v1/webhooks/demo-crm/contact.updated \
-            -H 'content-type: application/json' \
-            -H "x-integration-timestamp: $timestamp" \
-            -H "x-integration-signature: $signature" \
-            -H 'x-idempotency-key: ci-hook-1' \
-            --data "$payload")
-          test "$response_code" = "200"
-          grep -q '"replayed":true' /tmp/webhook-replay.json
-
-          invalid_signature='v1=0000000000000000000000000000000000000000000000000000000000000000'
-          response_code=$(curl -sS -o /tmp/webhook-rejected.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:3001/v1/webhooks/demo-crm/contact.updated \
-            -H 'content-type: application/json' \
-            -H "x-integration-timestamp: $timestamp" \
-            -H "x-integration-signature: $invalid_signature" \
-            -H 'x-idempotency-key: ci-hook-invalid' \
-            --data "$payload")
-          test "$response_code" = "401"
-          grep -q '"reason":"invalid_signature"' /tmp/webhook-rejected.json
-          curl -fsS http://127.0.0.1:3001/v1/webhook-audit | grep -q '"outcome":"replayed"'
-          curl -fsS http://127.0.0.1:3001/v1/webhook-audit | grep -q '"outcome":"rejected"'
-
-          response_code=$(curl -sS -o /tmp/outbound.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:3001/v1/demo/outbound \
-            -H 'content-type: application/json' \
-            --data '{"payload":{"externalId":"demo-789"},"idempotencyKey":"ci-outbound-1"}')
-          test "$response_code" = "200"
-          grep -q '"ok":true' /tmp/outbound.json
-          grep -q '"attempts":3' /tmp/outbound.json
-          grep -q '"attempt":3' /tmp/outbound.json
-
-          response_code=$(curl -sS -o /tmp/soap-success.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:3001/v1/demo/soap \
-            -H 'content-type: application/json' \
-            --data '{"mode":"success"}')
-          test "$response_code" = "200"
-          grep -q '"ok":true' /tmp/soap-success.json
-          grep -q 'PingResponse' /tmp/soap-success.json
-
-          response_code=$(curl -sS -o /tmp/soap-fault.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:3001/v1/demo/soap \
-            -H 'content-type: application/json' \
-            --data '{"mode":"fault"}')
-          test "$response_code" = "502"
-          grep -q '"kind":"fault"' /tmp/soap-fault.json
-          grep -q 'Fictional demo fault' /tmp/soap-fault.json
-
-          # Retryable job: first attempt schedules retry, second succeeds.
-          curl -fsS -X POST http://127.0.0.1:3001/v1/demo/jobs \
-            -H 'content-type: application/json' \
-            --data '{"mode":"eventual_success","failuresBeforeSuccess":1,"maxAttempts":3,"correlationId":"ci-job-retry"}' \
-            > /tmp/job-retry-created.json
-          retry_job_id=$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/job-retry-created.json','utf8'));process.stdout.write(j.id)")
-
-          curl -fsS -X POST http://127.0.0.1:3001/v1/demo/jobs/process > /tmp/job-retry-first.json
-          grep -q '"status":"retry_scheduled"' /tmp/job-retry-first.json
-          sleep 0.05
-          curl -fsS -X POST http://127.0.0.1:3001/v1/demo/jobs/process > /tmp/job-retry-second.json
-          grep -q '"status":"succeeded"' /tmp/job-retry-second.json
-          curl -fsS "http://127.0.0.1:3001/v1/demo/jobs/$retry_job_id" | grep -q '"status":"succeeded"'
-
-          # Permanent failure: dead-letter immediately, then replay as a new record.
-          curl -fsS -X POST http://127.0.0.1:3001/v1/demo/jobs \
-            -H 'content-type: application/json' \
-            --data '{"mode":"permanent_failure","maxAttempts":3,"correlationId":"ci-job-dlq"}' \
-            > /tmp/job-dead-created.json
-          dead_job_id=$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/job-dead-created.json','utf8'));process.stdout.write(j.id)")
-
-          curl -fsS -X POST http://127.0.0.1:3001/v1/demo/jobs/process > /tmp/job-dead-processed.json
-          grep -q '"status":"dead_letter"' /tmp/job-dead-processed.json
-
-          curl -fsS -X POST "http://127.0.0.1:3001/v1/demo/jobs/$dead_job_id/replay" > /tmp/job-replayed.json
-          replay_job_id=$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/job-replayed.json','utf8'));process.stdout.write(j.id)")
-          test "$replay_job_id" != "$dead_job_id"
-          DEAD_JOB_ID="$dead_job_id" node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('/tmp/job-replayed.json','utf8'));if(j.replayedFromJobId!==process.env.DEAD_JOB_ID)process.exit(1)"
-          curl -fsS "http://127.0.0.1:3001/v1/demo/jobs/$dead_job_id" | grep -q '"status":"dead_letter"'
-
-          curl -fsS http://127.0.0.1:3001/v1/demo/job-metrics > /tmp/job-metrics.json
-          grep -q '"succeeded":1' /tmp/job-metrics.json
-          grep -q '"deadLettered":1' /tmp/job-metrics.json
-          grep -q '"replayed":1' /tmp/job-metrics.json
+          npm run smoke
 
       - name: Dependency audit
         run: npm audit --audit-level=high
