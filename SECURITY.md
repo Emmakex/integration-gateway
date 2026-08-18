@@ -24,10 +24,16 @@ Report security concerns privately to **eduardoyauri@emmake.com** with the affec
 - XML entity processing remains disabled for generic SOAP response parsing.
 - Enforce response-size limits before treating remote SOAP/XML data as trusted application input.
 - Do not expose generic SOAP operation/namespace selection directly to untrusted public callers; provider adapters should own those values.
-- Automatic SOAP retries require provider-specific idempotency guarantees and should be handled through the job/replay layer rather than the generic connector.
+- Automatic SOAP retries require provider-specific idempotency guarantees and should be handled through reviewed job/executor logic rather than the generic connector.
+- Job payloads must never choose arbitrary modules, executable code or remote URLs.
+- Register job executors explicitly in server composition and validate payloads inside the executor boundary.
+- Production job repositories must provide durable atomic claim/lease semantics before multiple workers are enabled.
+- Retry budgets and backoff are mandatory; a failed job must not loop forever.
+- Dead-letter replay must be explicit, authorized and auditable in a real operations API; replay must preserve the original failed record.
+- Avoid high-cardinality metric labels and never place payloads, emails, IDs or secrets in metric label values.
 - Real provider credentials belong in a deployment secret store and provider-specific adapter, not generic request payloads.
 - Integration logs must not contain secrets, full sensitive XML payloads or unnecessary personal data.
-- Demo/audit endpoints must remain disabled or separately authenticated in production.
-- Production persistence must replace in-memory event, audit and idempotency adapters.
+- Demo/audit/job-management endpoints must remain disabled or separately authenticated in production.
+- Production persistence must replace in-memory event, audit, idempotency and job adapters.
 
 If a credential is committed accidentally, deleting it from a later commit is insufficient. Revoke or rotate it and assess Git history exposure.
