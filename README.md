@@ -1,5 +1,7 @@
 # Integration Gateway
 
+<p align="center"><strong>English</strong> · <a href="./README.es.md">Español</a></p>
+
 > Reusable TypeScript backend for REST APIs, signed webhooks, SOAP/XML, background jobs, retries and enterprise adapters.
 
 Integration Gateway is a clean-room integration starter built around explicit ports, adapters and trust boundaries. It demonstrates how to receive signed events, call REST/SOAP systems, schedule retryable work, preserve dead-letter history and expose low-cardinality operational signals without coupling the core to a specific CRM, ERP, booking engine, payment provider or vendor API.
