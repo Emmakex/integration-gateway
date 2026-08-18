@@ -3,10 +3,13 @@ import fastifyRawBody from "fastify-raw-body";
 import { InMemoryIdempotencyRepository } from "./adapters/in-memory-idempotency-repository.ts";
 import { InMemoryIntegrationEventRepository } from "./adapters/in-memory-integration-event-repository.ts";
 import { InMemoryWebhookAuditRepository } from "./adapters/in-memory-webhook-audit-repository.ts";
+import { buildOutboundConnector } from "./composition/outbound.ts";
 import type { AppConfig } from "./config.ts";
+import { registerDemoOutboundApi, registerDemoOutboundTarget } from "./demo/outbound-routes.ts";
 import type { CreateIntegrationEventInput } from "./domain/integration-event.ts";
 import type { WebhookIngestInput } from "./domain/webhook.ts";
 import { IntegrationEventService } from "./services/integration-event-service.ts";
+import { OutboundIntegrationService } from "./services/outbound-integration-service.ts";
 import { WebhookService } from "./services/webhook-service.ts";
 
 const createEventSchema = {
@@ -83,6 +86,8 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
     config.webhookSigningSecret,
     config.webhookMaxAgeSeconds
   );
+  const outboundConnector = buildOutboundConnector(config);
+  const outboundService = new OutboundIntegrationService(outboundConnector);
 
   app.get("/health", async () => ({
     status: "ok",
@@ -94,7 +99,8 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
     status: "ready",
     checks: {
       eventRepository: "ok",
-      webhookSignature: config.webhookSigningSecret ? "configured" : "disabled"
+      webhookSignature: config.webhookSigningSecret ? "configured" : "disabled",
+      outboundConnector: config.outboundBaseUrl ? "configured" : "disabled"
     }
   }));
 
@@ -189,6 +195,9 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
       return { items: await webhookService.listAudit(limit) };
     });
   }
+
+  if (config.enableDemoTarget) registerDemoOutboundTarget(app);
+  if (config.enableDemoApi) registerDemoOutboundApi(app, outboundService);
 
   return app;
 }
