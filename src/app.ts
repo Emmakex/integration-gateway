@@ -3,9 +3,11 @@ import fastifyRawBody from "fastify-raw-body";
 import { InMemoryIdempotencyRepository } from "./adapters/in-memory-idempotency-repository.ts";
 import { InMemoryIntegrationEventRepository } from "./adapters/in-memory-integration-event-repository.ts";
 import { InMemoryWebhookAuditRepository } from "./adapters/in-memory-webhook-audit-repository.ts";
+import { buildJobRuntime } from "./composition/jobs.ts";
 import { buildOutboundConnector } from "./composition/outbound.ts";
 import { buildSoapConnector } from "./composition/soap.ts";
 import type { AppConfig } from "./config.ts";
+import { registerDemoJobApi } from "./demo/job-routes.ts";
 import { registerDemoOutboundApi, registerDemoOutboundTarget } from "./demo/outbound-routes.ts";
 import {
   registerDemoSoapApi,
@@ -98,6 +100,14 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
   const outboundService = new OutboundIntegrationService(outboundConnector);
   const soapConnector = buildSoapConnector(config);
   const soapDemoService = soapConnector ? new SoapDemoService(soapConnector) : null;
+  const jobs = buildJobRuntime(config, (error) => {
+    app.log.error({ err: error }, "job worker tick failed");
+  });
+
+  if (config.jobWorkerEnabled) {
+    app.addHook("onReady", async () => jobs.worker.start());
+  }
+  app.addHook("onClose", async () => jobs.worker.stop());
 
   app.get("/health", async () => ({
     status: "ok",
@@ -111,7 +121,8 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
       eventRepository: "ok",
       webhookSignature: config.webhookSigningSecret ? "configured" : "disabled",
       outboundConnector: config.outboundBaseUrl ? "configured" : "disabled",
-      soapConnector: config.soapEndpoint ? "configured" : "disabled"
+      soapConnector: config.soapEndpoint ? "configured" : "disabled",
+      jobWorker: config.jobWorkerEnabled ? "enabled" : "disabled"
     }
   }));
 
@@ -215,6 +226,7 @@ export async function buildApp(config: AppConfig): Promise<FastifyInstance> {
   if (config.enableDemoApi) {
     registerDemoOutboundApi(app, outboundService);
     if (soapDemoService) registerDemoSoapApi(app, soapDemoService);
+    registerDemoJobApi(app, jobs.service);
   }
 
   return app;
