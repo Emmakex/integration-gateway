@@ -32,6 +32,9 @@ jobs:
       - name: Public safety check
         run: npm run check:safety
 
+      - name: Unit tests
+        run: npm test
+
       - name: Type check
         run: npm run typecheck
 
