@@ -21,12 +21,12 @@ function normalizedType(value: string): string {
   return type;
 }
 
-function normalizedMaxAttempts(value: number | undefined): number {
-  if (value === undefined) return 3;
-  if (!Number.isInteger(value) || value < 1 || value > 20) {
+function normalizedMaxAttempts(value: number | undefined, fallback: number): number {
+  const resolved = value ?? fallback;
+  if (!Number.isInteger(resolved) || resolved < 1 || resolved > 20) {
     throw new Error("Job maxAttempts must be an integer between 1 and 20");
   }
-  return value;
+  return resolved;
 }
 
 function transition(
@@ -57,6 +57,7 @@ export class JobService {
   private readonly executors: JobExecutorRegistry;
   private readonly metrics: JobMetrics;
   private readonly retryPolicy: RetryPolicy;
+  private readonly defaultMaxAttempts: number;
   private readonly clock: Clock;
 
   constructor(options: {
@@ -64,12 +65,14 @@ export class JobService {
     executors: JobExecutorRegistry;
     metrics: JobMetrics;
     retryPolicy: RetryPolicy;
+    defaultMaxAttempts: number;
     clock?: Clock;
   }) {
     this.repository = options.repository;
     this.executors = options.executors;
     this.metrics = options.metrics;
     this.retryPolicy = options.retryPolicy;
+    this.defaultMaxAttempts = normalizedMaxAttempts(undefined, options.defaultMaxAttempts);
     this.clock = options.clock ?? (() => new Date());
   }
 
@@ -84,7 +87,7 @@ export class JobService {
       correlationId: input.correlationId?.trim() || randomUUID(),
       payload: structuredClone(input.payload),
       attempts: 0,
-      maxAttempts: normalizedMaxAttempts(input.maxAttempts),
+      maxAttempts: normalizedMaxAttempts(input.maxAttempts, this.defaultMaxAttempts),
       availableAt: timestamp,
       createdAt: timestamp,
       updatedAt: timestamp,
