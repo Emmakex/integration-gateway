@@ -1,25 +1,18 @@
-name: Generate dependency lock
+name: Verify dependency lock
 
 on:
-  push:
-    branches: [release/v1.0-hardening]
-    paths:
-      - package.json
-      - .github/workflows/generate-lock.yml
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  lock:
-    if: github.actor != 'github-actions[bot]'
+  verify-lock:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checkout release branch
+      - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          ref: release/v1.0-hardening
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -30,17 +23,7 @@ jobs:
       - name: Verify npm major
         run: npm --version | grep -E '^11\.'
 
-      - name: Generate lockfile only
-        run: npm install --package-lock-only --ignore-scripts --no-fund
-
-      - name: Commit lockfile when changed
+      - name: Verify committed lockfile is current
         run: |
-          if [ -z "$(git status --porcelain -- package-lock.json)" ]; then
-            echo "package-lock.json is already current"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: lock v1.0 dependencies"
-          git push origin HEAD:release/v1.0-hardening
+          npm install --package-lock-only --ignore-scripts --no-fund
+          git diff --exit-code -- package-lock.json
