@@ -128,9 +128,9 @@ const outbound = await request("/v1/demo/outbound", {
     idempotencyKey: "ci-outbound-1"
   }
 });
-assert.equal(outbound.ok, true);
-assert.equal(outbound.attempts, 3);
-assert.equal(outbound.body.attempt, 3);
+assert.equal(outbound.result.ok, true);
+assert.equal(outbound.result.attempts, 3);
+assert.equal(outbound.result.body.attempt, 3);
 
 const soapSuccess = await request("/v1/demo/soap", {
   method: "POST",
