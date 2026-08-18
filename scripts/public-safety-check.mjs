@@ -5,13 +5,19 @@ const roots = ["src"];
 const findings = [];
 const textExtensions = new Set([".ts", ".js", ".mjs", ".json"]);
 
+const standardProtocolUris = [
+  "http://schemas.xmlsoap.org/soap/envelope/",
+  "http://www.w3.org/2003/05/soap-envelope"
+];
+
 const rules = [
   { name: "debug logging", pattern: /console\.(log|debug)\s*\(/ },
   { name: "dynamic code execution", pattern: /\b(eval|Function)\s*\(/ },
   { name: "hardcoded bearer token", pattern: /Bearer\s+[A-Za-z0-9._~+\/-]{16,}/i },
-  { name: "private key material", pattern: /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/ },
-  { name: "hardcoded external endpoint", pattern: /https?:\/\/(?!127\.0\.0\.1|localhost)/i }
+  { name: "private key material", pattern: /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/ }
 ];
+
+const externalEndpointPattern = /https?:\/\/(?!127\.0\.0\.1|localhost)/i;
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -25,6 +31,14 @@ async function walk(directory) {
     const content = await readFile(path, "utf8");
     for (const rule of rules) {
       if (rule.pattern.test(content)) findings.push(`${path}: ${rule.name}`);
+    }
+
+    const endpointScanContent = standardProtocolUris.reduce(
+      (value, uri) => value.replaceAll(uri, "STANDARD_PROTOCOL_URI"),
+      content
+    );
+    if (externalEndpointPattern.test(endpointScanContent)) {
+      findings.push(`${path}: hardcoded external endpoint`);
     }
   }
 }
