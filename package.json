@@ -4,8 +4,17 @@
   "private": true,
   "description": "Reusable TypeScript integration gateway for REST APIs, signed webhooks, SOAP/XML, background jobs, retries and enterprise adapters.",
   "license": "MIT",
+  "author": "Eduardo Yauri",
   "type": "module",
   "packageManager": "npm@11.17.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Emmakex/integration-gateway.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Emmakex/integration-gateway/issues"
+  },
+  "homepage": "https://github.com/Emmakex/integration-gateway#readme",
   "engines": {
     "node": ">=24.12 <25",
     "npm": ">=11 <12"
