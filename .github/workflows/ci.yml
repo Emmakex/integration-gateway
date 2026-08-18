@@ -32,6 +32,9 @@ jobs:
       - name: Public safety check
         run: npm run check:safety
 
+      - name: Unit tests
+        run: npm test
+
       - name: Type check
         run: npm run typecheck
 
@@ -43,6 +46,9 @@ jobs:
           HOST: 127.0.0.1
           PORT: 3001
           LOG_LEVEL: warn
+          WEBHOOK_SIGNING_SECRET: integration-gateway-ci-demo-key
+          WEBHOOK_MAX_AGE_SECONDS: 300
+          EXPOSE_AUDIT_API: true
         run: |
           npm start > /tmp/integration-gateway.log 2>&1 &
           server_pid=$!
@@ -62,7 +68,7 @@ jobs:
             exit 1
           fi
 
-          curl -fsS http://127.0.0.1:3001/ready | grep -q '"status":"ready"'
+          curl -fsS http://127.0.0.1:3001/ready | grep -q '"webhookSignature":"configured"'
 
           response_code=$(curl -sS -o /tmp/event.json -w '%{http_code}' \
             -X POST http://127.0.0.1:3001/v1/integration-events \
@@ -71,7 +77,48 @@ jobs:
 
           test "$response_code" = "201"
           grep -q '"status":"accepted"' /tmp/event.json
-          curl -fsS http://127.0.0.1:3001/v1/integration-events | grep -q 'demo-crm'
+
+          payload='{"contactId":"demo-webhook-456"}'
+          timestamp=$(date +%s)
+          signature=$(PAYLOAD="$payload" TIMESTAMP="$timestamp" node -e "const {createHmac}=require('node:crypto');process.stdout.write('v1='+createHmac('sha256',process.env.WEBHOOK_SIGNING_SECRET).update(process.env.TIMESTAMP+'.'+process.env.PAYLOAD).digest('hex'))")
+
+          response_code=$(curl -sS -o /tmp/webhook-first.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:3001/v1/webhooks/demo-crm/contact.updated \
+            -H 'content-type: application/json' \
+            -H "x-integration-timestamp: $timestamp" \
+            -H "x-integration-signature: $signature" \
+            -H 'x-idempotency-key: ci-hook-1' \
+            -H 'x-correlation-id: ci-correlation-1' \
+            --data "$payload")
+
+          test "$response_code" = "202"
+          grep -q '"replayed":false' /tmp/webhook-first.json
+
+          response_code=$(curl -sS -o /tmp/webhook-replay.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:3001/v1/webhooks/demo-crm/contact.updated \
+            -H 'content-type: application/json' \
+            -H "x-integration-timestamp: $timestamp" \
+            -H "x-integration-signature: $signature" \
+            -H 'x-idempotency-key: ci-hook-1' \
+            --data "$payload")
+
+          test "$response_code" = "200"
+          grep -q '"replayed":true' /tmp/webhook-replay.json
+
+          invalid_signature='v1=0000000000000000000000000000000000000000000000000000000000000000'
+          response_code=$(curl -sS -o /tmp/webhook-rejected.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:3001/v1/webhooks/demo-crm/contact.updated \
+            -H 'content-type: application/json' \
+            -H "x-integration-timestamp: $timestamp" \
+            -H "x-integration-signature: $invalid_signature" \
+            -H 'x-idempotency-key: ci-hook-invalid' \
+            --data "$payload")
+
+          test "$response_code" = "401"
+          grep -q '"reason":"invalid_signature"' /tmp/webhook-rejected.json
+
+          curl -fsS http://127.0.0.1:3001/v1/webhook-audit | grep -q '"outcome":"replayed"'
+          curl -fsS http://127.0.0.1:3001/v1/webhook-audit | grep -q '"outcome":"rejected"'
 
       - name: Dependency audit
         run: npm audit --audit-level=high
