@@ -5,6 +5,7 @@ export type AppConfig = {
   logLevel: string;
   webhookSigningSecret: string | null;
   webhookMaxAgeSeconds: number;
+  exposeAuditApi: boolean;
 };
 
 function parsePort(value: string | undefined): number {
@@ -25,6 +26,13 @@ function parsePositiveInteger(value: string | undefined, fallback: number, field
   return parsed;
 }
 
+function parseBoolean(value: string | undefined, fallback: boolean, field: string): boolean {
+  if (!value) return fallback;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`${field} must be true or false`);
+}
+
 export function loadConfig(): AppConfig {
   return {
     serviceName: process.env.SERVICE_NAME?.trim() || "Integration Gateway",
@@ -36,6 +44,7 @@ export function loadConfig(): AppConfig {
       process.env.WEBHOOK_MAX_AGE_SECONDS,
       300,
       "WEBHOOK_MAX_AGE_SECONDS"
-    )
+    ),
+    exposeAuditApi: parseBoolean(process.env.EXPOSE_AUDIT_API, false, "EXPOSE_AUDIT_API")
   };
 }
