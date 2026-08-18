@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install --no-fund
+
+      - name: Public safety check
+        run: npm run check:safety
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: HTTP smoke tests
+        env:
+          HOST: 127.0.0.1
+          PORT: 3001
+          LOG_LEVEL: warn
+        run: |
+          npm start > /tmp/integration-gateway.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid 2>/dev/null || true' EXIT
+
+          ready=false
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3001/health > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != "true" ]; then
+            cat /tmp/integration-gateway.log
+            exit 1
+          fi
+
+          curl -fsS http://127.0.0.1:3001/ready | grep -q '"status":"ready"'
+
+          response_code=$(curl -sS -o /tmp/event.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:3001/v1/integration-events \
+            -H 'content-type: application/json' \
+            --data '{"source":"demo-crm","type":"contact.updated","payload":{"contactId":"demo-123"}}')
+
+          test "$response_code" = "201"
+          grep -q '"status":"accepted"' /tmp/event.json
+          curl -fsS http://127.0.0.1:3001/v1/integration-events | grep -q 'demo-crm'
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
