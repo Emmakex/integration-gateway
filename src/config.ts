@@ -6,6 +6,13 @@ export type AppConfig = {
   webhookSigningSecret: string | null;
   webhookMaxAgeSeconds: number;
   exposeAuditApi: boolean;
+  outboundBaseUrl: string | null;
+  outboundTimeoutMs: number;
+  outboundMaxAttempts: number;
+  outboundRetryBaseDelayMs: number;
+  outboundRetryMaxDelayMs: number;
+  enableDemoApi: boolean;
+  enableDemoTarget: boolean;
 };
 
 function parsePort(value: string | undefined): number {
@@ -45,6 +52,21 @@ export function loadConfig(): AppConfig {
       300,
       "WEBHOOK_MAX_AGE_SECONDS"
     ),
-    exposeAuditApi: parseBoolean(process.env.EXPOSE_AUDIT_API, false, "EXPOSE_AUDIT_API")
+    exposeAuditApi: parseBoolean(process.env.EXPOSE_AUDIT_API, false, "EXPOSE_AUDIT_API"),
+    outboundBaseUrl: process.env.OUTBOUND_BASE_URL?.trim() || null,
+    outboundTimeoutMs: parsePositiveInteger(process.env.OUTBOUND_TIMEOUT_MS, 3000, "OUTBOUND_TIMEOUT_MS"),
+    outboundMaxAttempts: parsePositiveInteger(process.env.OUTBOUND_MAX_ATTEMPTS, 3, "OUTBOUND_MAX_ATTEMPTS"),
+    outboundRetryBaseDelayMs: parsePositiveInteger(
+      process.env.OUTBOUND_RETRY_BASE_DELAY_MS,
+      250,
+      "OUTBOUND_RETRY_BASE_DELAY_MS"
+    ),
+    outboundRetryMaxDelayMs: parsePositiveInteger(
+      process.env.OUTBOUND_RETRY_MAX_DELAY_MS,
+      2000,
+      "OUTBOUND_RETRY_MAX_DELAY_MS"
+    ),
+    enableDemoApi: parseBoolean(process.env.ENABLE_DEMO_API, false, "ENABLE_DEMO_API"),
+    enableDemoTarget: parseBoolean(process.env.ENABLE_DEMO_TARGET, false, "ENABLE_DEMO_TARGET")
   };
 }
