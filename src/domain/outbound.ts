@@ -19,6 +19,7 @@ export type OutboundRequest = {
   path: string;
   correlationId: string;
   body?: Record<string, unknown>;
+  idempotencyKey?: string;
 };
 
 export type OutboundSuccess = {
