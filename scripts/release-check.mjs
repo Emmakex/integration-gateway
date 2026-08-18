@@ -9,6 +9,7 @@ const requiredFiles = [
   "SUPPORT.md",
   "ROADMAP.md",
   ".env.example",
+  "package-lock.json",
   "docs/README.md",
   "docs/ARCHITECTURE.md",
   "docs/WEBHOOKS.md",
@@ -50,8 +51,18 @@ for (const [groupName, group] of Object.entries({
   }
 }
 
-for (const script of ["check:safety", "check:release", "test", "typecheck", "build", "verify"]) {
+for (const script of ["check:safety", "check:release", "test", "smoke", "typecheck", "build", "verify"]) {
   if (!pkg.scripts?.[script]) failures.push(`missing npm script: ${script}`);
+}
+
+try {
+  const lock = JSON.parse(await readFile("package-lock.json", "utf8"));
+  if (lock.lockfileVersion !== 3) failures.push("package-lock.json must use lockfileVersion 3");
+  if (lock.name !== pkg.name) failures.push("package-lock.json name must match package.json");
+  if (lock.version !== pkg.version) failures.push("package-lock.json version must match package.json");
+  if (lock.packages?.[""]?.version !== pkg.version) failures.push("lockfile root package version must match package.json");
+} catch {
+  failures.push("package-lock.json must be valid JSON");
 }
 
 const envExample = await readFile(".env.example", "utf8");
