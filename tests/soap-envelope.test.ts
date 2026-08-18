@@ -48,5 +48,6 @@ test("parses SOAP 1.2 faults", () => {
 });
 
 test("does not expand custom XML entities", () => {
-  assert.throws(() => parseSoapResponse(`<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe "expanded">]><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><value>&xxe;</value></soap:Body></soap:Envelope>`));
+  const parsed = parseSoapResponse(`<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe "expanded">]><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><value>&xxe;</value></soap:Body></soap:Envelope>`);
+  assert.doesNotMatch(JSON.stringify(parsed.body), /expanded/);
 });
