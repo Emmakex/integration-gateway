@@ -8,8 +8,15 @@ const requiredFiles = [
   "CONTRIBUTING.md",
   "SUPPORT.md",
   "ROADMAP.md",
+  "RELEASING.md",
   ".env.example",
+  ".npmrc",
   "package-lock.json",
+  ".github/dependabot.yml",
+  ".github/PULL_REQUEST_TEMPLATE.md",
+  ".github/ISSUE_TEMPLATE/bug_report.yml",
+  ".github/ISSUE_TEMPLATE/feature_request.yml",
+  ".github/ISSUE_TEMPLATE/config.yml",
   "docs/README.md",
   "docs/ARCHITECTURE.md",
   "docs/WEBHOOKS.md",
@@ -63,6 +70,11 @@ try {
   if (lock.packages?.[""]?.version !== pkg.version) failures.push("lockfile root package version must match package.json");
 } catch {
   failures.push("package-lock.json must be valid JSON");
+}
+
+const npmrc = await readFile(".npmrc", "utf8");
+for (const expected of ["save-exact=true", "engine-strict=true", "package-lock=true"]) {
+  if (!npmrc.includes(expected)) failures.push(`.npmrc must include ${expected}`);
 }
 
 const envExample = await readFile(".env.example", "utf8");
